@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Y1io — 剪辑台作品集 / Cutting Bench Selects</title>
+  <meta name="description" content="Y1io — 用代码制作 3D 网页体验、浏览器小游戏、产品交互展示与短片。Every frame runs live." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 fill=%27%230a0a0a%27/%3E%3Crect x=%276%27 y=%276%27 width=%2752%27 height=%2752%27 fill=%27none%27 stroke=%27%23ff5a1f%27 stroke-width=%273%27/%3E%3Ctext x=%2732%27 y=%2741%27 text-anchor=%27middle%27 font-family=%27sans-serif%27 font-weight=%27700%27 font-size=%2726%27 fill=%27%23ff5a1f%27%3EY1%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="is-locked">
+  <!-- SVG turbulence filter for scroll-velocity ink/heat distortion -->
+  <svg width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+    <defs>
+      <filter id="ink-turbulence-filter">
+        <feTurbulence type="fractalNoise" baseFrequency="0.014 0.024" numOctaves="2" seed="2" result="noise" />
+        <feDisplacementMap id="inkDisplace" in="SourceGraphic" in2="noise" scale="0" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+    </defs>
+  </svg>
+
+  <!-- Full-screen VFX & spark/brush canvas -->
+  <canvas id="fx" aria-hidden="true"></canvas>
+
+  <!-- Custom difference cursor -->
+  <div class="cursor" id="cursor" aria-hidden="true">
+    <div class="cursor__ring"></div>
+    <div class="cursor__dot"></div>
+    <span class="cursor__label" id="cursorLabel">OPEN</span>
+  </div>
+
+  <!-- Asymmetric dual-layer curtain transition -->
+  <div class="curtain" id="curtain" aria-hidden="true">
+    <div class="curtain__layer curtain__layer--sub"></div>
+    <div class="curtain__layer curtain__layer--main"></div>
+  </div>
+
+  <!-- Academy countdown leader + handwritten Y1io signature reveal -->
+  <div class="leader" id="leader" role="dialog" aria-modal="true" aria-label="Opening reel leader">
+    <div class="leader__count grain-o" id="leaderCount">
+      <div class="leader__frame"></div>
+      <svg viewBox="0 0 600 600" aria-hidden="true">
+        <circle cx="300" cy="300" r="245" fill="none" stroke="#0a0a0a" stroke-width="5" />
+        <circle cx="300" cy="300" r="196" fill="none" stroke="#0a0a0a" stroke-width="2" stroke-dasharray="10 10" />
+        <line x1="20" y1="300" x2="580" y2="300" stroke="#0a0a0a" stroke-width="2" />
+        <line x1="300" y1="20" x2="300" y2="580" stroke="#0a0a0a" stroke-width="2" />
+        <g id="leaderSweep" style="transform-origin:300px 300px">
+          <path d="M300,300 L300,55 A245,245 0 0,1 545,300 Z" fill="rgba(10,10,10,0.16)" />
+          <line x1="300" y1="300" x2="300" y2="42" stroke="#0a0a0a" stroke-width="5" />
+        </g>
+        <text id="leaderNum" class="num" x="300" y="395" text-anchor="middle">08</text>
+      </svg>
+      <div class="leader__meta">
+        <span>Y1IO · REEL 01</span>
+        <span>35MM · 24 FPS · CODE CUT</span>
+      </div>
+    </div>
+
+    <div class="leader__sig" id="leaderSig">
+      <div id="leaderSigSvg"></div>
+      <div class="leader__sigline">SELECTS · CUT BY HAND</div>
+      <div class="leader__hint" id="leaderHint">Y1IO · 2027</div>
+    </div>
+
+    <button class="leader__skip" id="skipIntro" type="button">
+      <span data-i18n="skip">跳过开场</span>
+      <span class="ico-slot" data-ico="arrow-right"></span>
+    </button>
+  </div>
+
+  <!-- Top bar -->
+  <header class="nav" id="topnav">
+    <a class="nav__brand" href="#work" id="replaySig" title="Replay intro & signature">
+      <span class="nav__sig" id="navSig" aria-hidden="true"></span>
+      <span class="vh">Y1io</span>
+      <b>SELECTS · 35MM</b>
+    </a>
+    <nav class="nav__links" aria-label="Primary">
+      <a href="#work" class="is-active" data-nav="work" data-i18n="nav.work">作品</a>
+      <a href="#edl" data-nav="edl" data-i18n="nav.edl">流程</a>
+      <a href="#bin" data-nav="bin" data-i18n="nav.bin">工具</a>
+      <a href="#operator" data-nav="operator" data-i18n="nav.operator">剪辑师</a>
+      <a href="#contact" data-nav="contact" data-i18n="nav.contact">联系</a>
+    </nav>
+    <div class="nav__tools">
+      <button class="chipbtn" id="soundBtn" type="button" aria-pressed="false" title="Toggle mechanical sound (M)">
+        <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span id="soundLabel" data-i18n="sound.off">声音关</span>
+      </button>
+      <button class="chipbtn lang" id="langBtn" type="button" title="Switch language (L)">
+        <span data-lang="zh" class="on">中</span> / <span data-lang="en">EN</span>
+      </button>
+      <button class="nav__menu" id="menuBtn" type="button" aria-label="Open menu" aria-expanded="false">
+        <span class="ico-slot" data-ico="list"></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Mobile drawer -->
+  <div class="sheetnav" id="sheetnav" aria-hidden="true">
+    <button class="x" id="menuClose" type="button" aria-label="Close menu">
+      <span class="ico-slot" data-ico="x"></span>
+    </button>
+    <a href="#work"><span>01</span><em data-i18n="nav.work" style="font-style:normal">作品</em></a>
+    <a href="#edl"><span>02</span><em data-i18n="nav.edl" style="font-style:normal">流程</em></a>
+    <a href="#bin"><span>03</span><em data-i18n="nav.bin" style="font-style:normal">工具</em></a>
+    <a href="#operator"><span>04</span><em data-i18n="nav.operator" style="font-style:normal">剪辑师</em></a>
+    <a href="#contact"><span>05</span><em data-i18n="nav.contact" style="font-style:normal">联系</em></a>
+  </div>
+
+  <main>
+    <!-- 01: CUTTING BENCH HERO + PERFORATED SELECT RAIL -->
+    <section class="bench" id="work" aria-label="Select rail showcase">
+      <div class="bench__head">
+        <h1 class="bench__title liquid-ink-filter" id="heroTitle">
+          <span class="l l1"><span data-i18n="hero.l1">每一帧</span></span>
+          <span class="l l2"><span data-i18n="hero.l2">都能实时运行。</span></span>
+        </h1>
+        <p class="bench__sub" data-i18n="hero.sub">Y1io 用代码做 3D 网页、浏览器小游戏、产品展示和短片。</p>
+        <div class="bench__ctas">
+          <button class="btn" id="scrubBtn" type="button" data-i18n="hero.cta">拖动胶片</button>
+          <a class="link-arrow" href="#contact">
+            <span data-i18n="cta.contact">联系我</span>
+            <span class="ico-slot" data-ico="arrow-up-right"></span>
+          </a>
+        </div>
+      </div>
+
+      <aside class="bench__side" aria-live="polite">
+        <div class="readout" id="readout">
+          <div class="readout__num" id="roNum">01<small>/08</small></div>
+          <div class="readout__title" id="roTitle">JeskoStudio</div>
+          <div class="readout__kind" id="roKind">浏览器里的 3D 汽车展厅与定制器</div>
+          <div class="readout__acts">
+            <button class="btn btn--sm" id="roViewBtn" type="button" data-i18n="rail.view">查看画格</button>
+            <a class="link-arrow" id="roLiveLink" href="https://y1io.github.io/works/jesko/" target="_blank" rel="noopener">
+              <span id="roLiveLabel" data-i18n="rail.live">在线演示</span>
+              <span class="ico-slot" data-ico="arrow-up-right"></span>
+            </a>
+          </div>
+        </div>
+      </aside>
+
+      <div class="rail" id="rail">
+        <div class="gate" aria-hidden="true">
+          <div class="gate__flag">
+            <svg viewBox="0 0 64 92">
+              <polygon points="0,0 64,0 64,66 32,88 0,66" fill="#ff5a1f" />
+              <polygon points="32,88 64,66 48,66" fill="#9a2f08" />
+              <text id="gateNum" x="32" y="42" text-anchor="middle" font-family="Antonio, sans-serif" font-weight="700" font-size="24" fill="#0a0a0a">01</text>
+            </svg>
+          </div>
+          <div class="gate__line"></div>
+        </div>
+
+        <div class="rail__track" id="railTrack">
+          <div class="ruler" id="ruler"></div>
+          <div class="strip" id="strip">
+            <div class="grainlayer"></div>
+          </div>
+        </div>
+
+        <div class="rail__arrows">
+          <button class="arrowbtn" id="prevFrame" type="button" aria-label="Previous frame">
+            <span class="ico-slot" data-ico="arrow-left"></span>
+          </button>
+          <button class="arrowbtn" id="nextFrame" type="button" aria-label="Next frame">
+            <span class="ico-slot" data-ico="arrow-right"></span>
+          </button>
+        </div>
+      </div>
+
+      <div class="hint" id="benchHint">
+        <span class="hint__mouse" aria-hidden="true"></span>
+        <span class="hint__touch" aria-hidden="true">
+          <span class="ico-slot" data-ico="film-strip"></span>
+        </span>
+        <span class="hint__arrows" aria-hidden="true">
+          <span class="ico-slot" data-ico="arrow-down"></span>
+        </span>
+        <span data-i18n="hint.scroll">向下滚动拖动胶片</span>
+        <i class="sep" aria-hidden="true"></i>
+        <span class="dim" data-i18n="hint.click">点击画格查看作品</span>
+      </div>
+
+      <div class="progress" aria-hidden="true"><i id="railProgress"></i></div>
+    </section>
+
+    <!-- 02: FOUR-TRACK EDL TIMELINE -->
+    <section class="sec edl grain-o" id="edl">
+      <h2 class="sec__title reveal-line"><span data-i18n="edl.title">一张剪辑台，四条轨道。</span></h2>
+      <p class="sec__sub" data-i18n="edl.sub">时间线上的每个片段都是胶片轨上的作品。滚动推动播放头，点击片段直接打开。</p>
+
+      <div class="edl__wrap">
+        <div class="edl__board" id="edlBoard">
+          <div class="edl__tc">
+            <div></div>
+            <div class="ticks">
+              <span style="left:0%">00:00</span>
+              <span style="left:25%">00:10</span>
+              <span style="left:50%">00:20</span>
+              <span style="left:75%">00:30</span>
+              <span style="left:96%">00:40</span>
+            </div>
+          </div>
+          <div id="edlTracks"></div>
+          <div class="playhead" id="playhead" aria-hidden="true"><b id="edlTc">00:00:00</b></div>
+        </div>
+      </div>
+      <div class="edl__scrollhint caps" id="edlHint">← SWIPE TIMELINE →</div>
+    </section>
+
+    <!-- 03: HANGING FILM TRIMS TOOL BIN -->
+    <section class="sec bin" id="bin">
+      <h2 class="sec__title reveal-line"><span data-i18n="bin.title">素材箱里的胶片头。</span></h2>
+      <p class="sec__sub" data-i18n="bin.sub">剪出这些画格用到的工具。鼠标悬停或轻点，胶片会晃起来。</p>
+      <div class="bin__rows" id="binRows"></div>
+    </section>
+
+    <!-- 04: THE OPERATOR SLATE + Y1 TRI-RENDER -->
+    <section class="sec" id="operator">
+      <div class="op">
+        <div>
+          <h2 class="sec__title reveal-line"><span data-i18n="op.title">剪辑师。</span></h2>
+          <p class="op__body" data-i18n="op.body">场记板上只写 Y1io。这里没有简历：胶片轨上的作品就是自我介绍。同一个人，不同的引擎，点场记板换一条。</p>
+        </div>
+
+        <button class="slate" id="slate" type="button" aria-label="Tap clapperboard to switch take">
+          <div class="slate__sticks" aria-hidden="true">
+            <div class="slate__stick slate__stick--top"></div>
+            <div class="slate__stick slate__stick--bot"></div>
+          </div>
+          <div class="slate__board">
+            <div class="slate__win" id="slateWin"></div>
+            <div class="slate__cell">
+              <small data-i18n="op.f1">格作品在轨</small>
+              <b class="o">08</b>
+            </div>
+            <div class="slate__cell">
+              <small data-i18n="op.f2">件工具在箱</small>
+              <b>30</b>
+            </div>
+            <div class="slate__cell">
+              <small data-i18n="op.f3">个可在浏览器实时运行</small>
+              <b>07</b>
+            </div>
+          </div>
+          <div class="slate__foot">
+            <span>Y1IO · OPERATOR</span>
+            <span class="take" id="slateTake">TAKE 01 / ANIME</span>
+            <span class="slate__tap">
+              <span class="ico-slot" data-ico="play"></span>
+              <span>CLAP</span>
+            </span>
+          </div>
+        </button>
+      </div>
+    </section>
+
+    <!-- 05: TAIL LEADER / CONTACT -->
+    <section class="sec tail" id="contact">
+      <div class="tail__marks" aria-hidden="true"><i></i><i class="on"></i></div>
+      <h2 class="sec__title reveal-line"><span data-i18n="c.title">片尾。</span></h2>
+      <p class="sec__sub" data-i18n="c.sub">有产品要展示、有世界要搭建、或者有片子要剪？发个需求过来。</p>
+
+      <div class="tail__grid">
+        <div>
+          <div class="caps" style="color:var(--muted);font-size:14px;margin-bottom:8px" data-i18n="c.email">邮箱</div>
+          <div class="mail">
+            <a class="mail__addr" id="mailAddr" href="mailto:y1iostudio11@gmail.com">y1iostudio11@gmail.com</a>
+            <button class="btn btn--ghost btn--sm" id="copyMailBtn" type="button">
+              <span class="ico-slot" data-ico="copy"></span>
+              <span id="copyMailTxt" data-i18n="c.copy">复制</span>
+            </button>
+          </div>
+          <ul class="links" id="socialLinks"></ul>
+        </div>
+
+        <form class="sheet" id="briefForm" novalidate>
+          <div class="field" id="fieldName">
+            <label for="inName" data-i18n="f.name">你的称呼</label>
+            <input id="inName" name="name" type="text" autocomplete="name" required />
+            <div class="err" id="errName" role="alert"></div>
+          </div>
+
+          <div class="field">
+            <span class="lbl" data-i18n="f.what">想做什么？</span>
+            <div class="chips" id="topicChips" role="group" aria-label="Project type">
+              <button class="chip" type="button" aria-pressed="true" data-topic="chip.web" data-i18n="chip.web">3D 网站</button>
+              <button class="chip" type="button" aria-pressed="false" data-topic="chip.product" data-i18n="chip.product">产品展示器</button>
+              <button class="chip" type="button" aria-pressed="false" data-topic="chip.game" data-i18n="chip.game">网页游戏</button>
+              <button class="chip" type="button" aria-pressed="false" data-topic="chip.film" data-i18n="chip.film">短片</button>
+              <button class="chip" type="button" aria-pressed="false" data-topic="chip.other" data-i18n="chip.other">其他</button>
+            </div>
+          </div>
+
+          <div class="field" id="fieldMsg">
+            <label for="inMsg" data-i18n="f.msg">需求</label>
+            <textarea id="inMsg" name="msg" required></textarea>
+            <div class="help" data-i18n="f.msg.help">简单写写想法、时间和最终投放在哪里。</div>
+            <div class="err" id="errMsg" role="alert"></div>
+          </div>
+
+          <button class="btn" type="submit">
+            <span class="ico-slot" data-ico="paper-plane-tilt"></span>
+            <span data-i18n="f.send">发送需求</span>
+          </button>
+          <p class="form__ok" id="formOk" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>© Y1io — <em data-i18n="foot.line" style="font-style:normal">手工剪辑，用代码。</em></span>
+    <span class="keys" data-i18n="keys">快捷键：← → 切换画格 · Enter 打开 · Esc 关闭 · M 声音 · L 语言</span>
+    <button id="rewindBtn" type="button">
+      <span class="ico-slot" data-ico="arrow-counter-clockwise"></span>
+      <span data-i18n="foot.rewind">倒带回片头</span>
+    </button>
+  </footer>
+
+  <!-- Live timecode HUD -->
+  <div class="hud" id="hud" aria-hidden="true">
+    <span>FR <b id="hudFr">01</b>/08</span>
+    <span>TC <b id="hudTc">00:00:01:00</b></span>
+  </div>
+
+  <!-- Resume stopped-frame toast -->
+  <div class="toast" id="resumeToast" role="status" aria-live="polite">
+    <span class="ico-slot" data-ico="flag-pennant"></span>
+    <span id="resumeTxt">上次你停在第 01 格</span>
+    <button class="btn" id="resumeGo" type="button" data-i18n="resume.go">跳回去</button>
+    <button class="x" id="resumeNo" type="button" aria-label="Dismiss">
+      <span class="ico-slot" data-ico="x"></span>
+    </button>
+  </div>
+
+  <!-- Fullscreen frame viewer -->
+  <div class="viewer" id="viewer" role="dialog" aria-modal="true" aria-labelledby="vTitle">
+    <div class="viewer__bar">
+      <span class="count">FRAME <b id="vBarNum">01</b> / 08</span>
+      <span class="sp"></span>
+      <button class="arrowbtn" id="vPrev" type="button" aria-label="Previous frame">
+        <span class="ico-slot" data-ico="arrow-left"></span>
+      </button>
+      <button class="arrowbtn" id="vNext" type="button" aria-label="Next frame">
+        <span class="ico-slot" data-ico="arrow-right"></span>
+      </button>
+      <button class="btn btn--ghost btn--sm" id="vClose" type="button">
+        <span class="ico-slot" data-ico="x"></span>
+        <span data-i18n="v.close">关闭</span>
+      </button>
+    </div>
+
+    <div class="viewer__grid">
+      <div class="viewer__media">
+        <div class="viewer__strip">
+          <div class="viewer__win" id="vMedia"></div>
+        </div>
+        <div class="viewer__edge">
+          <span id="vEdgeCode">Y1IO · 5219 · SELECT</span>
+          <span id="vEdgeTc">00:00:01:00 — 00:00:06:00</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="viewer__num" id="vNum">01</div>
+        <h2 class="viewer__title" id="vTitle">JeskoStudio</h2>
+        <div class="viewer__kind" id="vKind"></div>
+        <p class="viewer__desc" id="vDesc"></p>
+
+        <ul class="spec" id="vSpecs"></ul>
+
+        <p class="tape grain-o" id="vNote" hidden></p>
+
+        <div class="viewer__acts">
+          <a class="btn" id="vLaunch" href="#" target="_blank" rel="noopener">
+            <span id="vLaunchTxt">打开项目</span>
+            <span class="ico-slot" data-ico="arrow-up-right"></span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="vendor/lenis.min.js"></script>
+  <script src="vendor/gsap.min.js"></script>
+  <script src="vendor/ScrollTrigger.min.js"></script>
+  <script src="js/generated.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
